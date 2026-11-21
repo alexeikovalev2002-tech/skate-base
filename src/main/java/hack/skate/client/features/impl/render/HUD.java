@@ -24,8 +24,12 @@ public class HUD extends Feature {
     private final BoolSetting arrayList = new BoolSetting("ArrayList", true);
     private final IntSetting arrayListOffset = new IntSetting("List Offset", 5, 0, 500, o -> arrayList.getValue());
 
+    private String getThemeName() {
+        return String.valueOf(theme.getValue());
+    }
+
     private int getAccentColor() {
-        return switch (theme.getMode()) {
+        return switch (getThemeName()) {
             case "Ocean" -> 0xFF38BDF8;
             case "Sakura" -> 0xFFF472B6;
             case "Monochrome" -> 0xFFE5E7EB;
@@ -34,7 +38,7 @@ public class HUD extends Feature {
     }
 
     private int getTextColor() {
-        return switch (theme.getMode()) {
+        return switch (getThemeName()) {
             case "Ocean" -> 0xFFE0F2FE;
             case "Sakura" -> 0xFFFCE7F3;
             case "Monochrome" -> 0xFFFFFFFF;
@@ -43,7 +47,7 @@ public class HUD extends Feature {
     }
 
     private int getPanelColor() {
-        return switch (theme.getMode()) {
+        return switch (getThemeName()) {
             case "Ocean" -> 0x90082F49;
             case "Sakura" -> 0x904A0D27;
             case "Monochrome" -> 0x9018181B;
