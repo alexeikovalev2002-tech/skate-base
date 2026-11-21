@@ -22,6 +22,7 @@ public class FeatureManager {
         features.add(new TriggerBot());
         features.add(new Teams());
         features.add(new Nametags());
+        features.add(new JumpCircle());
 
         features.forEach(Feature::initSettings);
         features.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
