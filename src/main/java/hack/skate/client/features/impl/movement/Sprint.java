@@ -5,6 +5,7 @@ import hack.skate.client.event.impl.EventMove;
 import hack.skate.client.features.Category;
 import hack.skate.client.features.Feature;
 import hack.skate.client.features.FeatureInfo;
+import net.minecraft.entity.effect.StatusEffects;
 
 @FeatureInfo(name = "Sprint", description = "Automatically sprints when moving forward", category = Category.MOVEMENT)
 public class Sprint extends Feature {
@@ -28,7 +29,7 @@ public class Sprint extends Feature {
                 && mc.player.input.movementForward > 0.0f
                 && !mc.player.horizontalCollision
                 && !mc.player.isSneaking()
-                && !mc.player.isBlind()
+                && !mc.player.hasStatusEffect(StatusEffects.BLINDNESS)
                 && mc.player.getHungerManager().getFoodLevel() > 6;
 
         if (canSprint) {
