@@ -56,11 +56,13 @@ public class JumpCircle extends Feature {
         }
 
         boolean onGround = mc.player.isOnGround();
-        boolean jumped = wasOnGround && !onGround && (mc.player.getVelocity().y > 0.05 || mc.player.getY() > lastY);
+        boolean jumpPressed = mc.options != null && mc.options.jumpKey.isPressed();
+        boolean movedUp = mc.player.getVelocity().y > 0.01 || mc.player.getY() > lastY + 0.005;
+        boolean jumped = wasOnGround && !onGround && (movedUp || jumpPressed);
 
         if (jumped) {
             Vec3d pos = mc.player.getPos();
-            circles.add(new CircleInstance(new Vec3d(pos.x, pos.y + 0.02, pos.z), System.currentTimeMillis()));
+            circles.add(new CircleInstance(new Vec3d(pos.x, pos.y + 0.03, pos.z), System.currentTimeMillis()));
         }
 
         wasOnGround = onGround;
@@ -76,9 +78,13 @@ public class JumpCircle extends Feature {
         }
     }
 
-    // Если в вашей базе есть EventRender3D, повесьте @Subscribe на метод с ним и вызовите renderCircles(event.getMatrixStack(), tickDelta)
+    // Подключите сюда ваше событие 3D-рендера из hack.skate.client.event.impl, например:
+    // @Subscribe
+    // public void onRender3D(EventRender3D event) {
+    //     renderCircles(event.getMatrixStack(), event.getTickDelta());
+    // }
     public void renderCircles(MatrixStack matrices, float tickDelta) {
-        if (circles.isEmpty() || mc.player == null) return;
+        if (circles.isEmpty() || mc.player == null || mc.gameRenderer == null) return;
 
         Vec3d camPos = mc.gameRenderer.getCamera().getPos();
         long now = System.currentTimeMillis();
