@@ -2,6 +2,7 @@ package hack.skate.client.features.impl.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import hack.skate.client.event.Subscribe;
+import hack.skate.client.event.impl.EventRender3D;
 import hack.skate.client.event.impl.EventTick;
 import hack.skate.client.features.Category;
 import hack.skate.client.features.Feature;
@@ -78,13 +79,12 @@ public class JumpCircle extends Feature {
         }
     }
 
-    // Подключите сюда ваше событие 3D-рендера из hack.skate.client.event.impl, например:
-    // @Subscribe
-    // public void onRender3D(EventRender3D event) {
-    //     renderCircles(event.getMatrixStack(), event.getTickDelta());
-    // }
-    public void renderCircles(MatrixStack matrices, float tickDelta) {
+    @Subscribe
+    public void onRender3D(EventRender3D event) {
         if (circles.isEmpty() || mc.player == null || mc.gameRenderer == null) return;
+
+        MatrixStack matrices = event.getMatrixStack();
+        if (matrices == null) return;
 
         Vec3d camPos = mc.gameRenderer.getCamera().getPos();
         long now = System.currentTimeMillis();
