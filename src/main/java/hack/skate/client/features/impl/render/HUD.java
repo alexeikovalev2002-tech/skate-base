@@ -9,6 +9,7 @@ import hack.skate.client.features.Feature;
 import hack.skate.client.features.FeatureInfo;
 import hack.skate.client.features.settings.impl.BoolSetting;
 import hack.skate.client.features.settings.impl.IntSetting;
+import hack.skate.client.features.settings.impl.ModeSetting;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -16,33 +17,88 @@ import java.util.List;
 
 @FeatureInfo(name = "HUD", description = "Stuffs on ur screen", category = Category.RENDER)
 public class HUD extends Feature {
+    private final ModeSetting theme = new ModeSetting("Theme", "Skate", "Skate", "Ocean", "Sakura", "Monochrome");
     private final BoolSetting watermark = new BoolSetting("Watermark", true);
     private final IntSetting watermarkX = new IntSetting("Watermark X", 5, 0, 500, o -> watermark.getValue());
     private final IntSetting watermarkY = new IntSetting("Watermark Y", 5, 0, 500, o -> watermark.getValue());
     private final BoolSetting arrayList = new BoolSetting("ArrayList", true);
     private final IntSetting arrayListOffset = new IntSetting("List Offset", 5, 0, 500, o -> arrayList.getValue());
 
+    private int getAccentColor() {
+        return switch (theme.getMode()) {
+            case "Ocean" -> 0xFF38BDF8;
+            case "Sakura" -> 0xFFF472B6;
+            case "Monochrome" -> 0xFFE5E7EB;
+            default -> ColorConfig.PRIMARY_ACCENT.getRGB();
+        };
+    }
+
+    private int getTextColor() {
+        return switch (theme.getMode()) {
+            case "Ocean" -> 0xFFE0F2FE;
+            case "Sakura" -> 0xFFFCE7F3;
+            case "Monochrome" -> 0xFFFFFFFF;
+            default -> ColorConfig.TEXT_WHITE.getRGB();
+        };
+    }
+
+    private int getPanelColor() {
+        return switch (theme.getMode()) {
+            case "Ocean" -> 0x90082F49;
+            case "Sakura" -> 0x904A0D27;
+            case "Monochrome" -> 0x9018181B;
+            default -> 0x90121216;
+        };
+    }
+
     @Subscribe
     public void onRender2D(EventRender2D event) {
         if (mc.getDebugHud().shouldShowDebugHud()) return;
 
+        int accentColor = getAccentColor();
+        int textColor = getTextColor();
+        int panelColor = getPanelColor();
+
         if (watermark.getValue()) {
-            Skate.fonts.getArial().renderWithShadow(
-                    event.getMatrixStack(),
-                    "S",
-                    watermarkX.getValue(),
-                    watermarkY.getValue(),
-                    9,
-                    ColorConfig.PRIMARY_ACCENT.getRGB()
+            String prefix = "S";
+            String suffix = "kate";
+
+            int wx = watermarkX.getValue();
+            int wy = watermarkY.getValue();
+            float prefixWidth = Skate.fonts.getArial().getWidth(prefix, 9);
+            float suffixWidth = Skate.fonts.getArial().getWidth(suffix, 9);
+
+            event.getContext().fill(
+                    wx - 3,
+                    wy - 2,
+                    (int) (wx + prefixWidth + suffixWidth + 3),
+                    wy + 11,
+                    panelColor
+            );
+            event.getContext().fill(
+                    wx - 3,
+                    wy - 2,
+                    (int) (wx + prefixWidth + suffixWidth + 3),
+                    wy - 1,
+                    accentColor
             );
 
             Skate.fonts.getArial().renderWithShadow(
                     event.getMatrixStack(),
-                    "kate",
-                    watermarkX.getValue() + Skate.fonts.getArial().getWidth("S") - 1,
-                    watermarkY.getValue(),
+                    prefix,
+                    wx,
+                    wy,
                     9,
-                    ColorConfig.TEXT_WHITE.getRGB()
+                    accentColor
+            );
+
+            Skate.fonts.getArial().renderWithShadow(
+                    event.getMatrixStack(),
+                    suffix,
+                    wx + prefixWidth - 1,
+                    wy,
+                    9,
+                    textColor
             );
         }
 
@@ -66,13 +122,28 @@ public class HUD extends Feature {
                 float textWidth = Skate.fonts.getArial().getWidth(displayText, 8);
                 int x = (int) (screenWidth - textWidth - offset);
 
+                event.getContext().fill(
+                        x - 3,
+                        y - 1,
+                        screenWidth - offset + 2,
+                        y + 9,
+                        panelColor
+                );
+                event.getContext().fill(
+                        screenWidth - offset + 1,
+                        y - 1,
+                        screenWidth - offset + 2,
+                        y + 9,
+                        accentColor
+                );
+
                 Skate.fonts.getArial().renderWithShadow(
                         event.getMatrixStack(),
                         displayText,
                         x,
                         y,
                         8,
-                        ColorConfig.PRIMARY_ACCENT.getRGB()
+                        accentColor
                 );
 
                 y += 10;
