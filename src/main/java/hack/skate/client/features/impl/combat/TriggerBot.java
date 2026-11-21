@@ -121,7 +121,8 @@ public class TriggerBot extends Feature {
             return true;
         }
         long handle = mc.getWindow().getHandle();
-        int glfwButton = switch (mouseButton.getMode()) {
+        String selectedButton = String.valueOf(mouseButton.getValue());
+        int glfwButton = switch (selectedButton) {
             case "RMB" -> GLFW.GLFW_MOUSE_BUTTON_RIGHT;
             case "MMB" -> GLFW.GLFW_MOUSE_BUTTON_MIDDLE;
             default -> GLFW.GLFW_MOUSE_BUTTON_LEFT;
