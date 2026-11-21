@@ -10,6 +10,8 @@ import hack.skate.client.features.impl.combat.TriggerBot;
 import hack.skate.client.features.impl.movement.Sprint;
 import hack.skate.client.features.impl.render.HUD;
 import hack.skate.client.features.impl.render.Nametags;
+import hack.skate.client.features.impl.render.JumpCircle;
+
 
 @Getter
 public class FeatureManager {
