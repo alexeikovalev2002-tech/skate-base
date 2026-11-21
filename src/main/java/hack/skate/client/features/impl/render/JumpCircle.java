@@ -8,8 +8,9 @@ import hack.skate.client.features.Feature;
 import hack.skate.client.features.FeatureInfo;
 import hack.skate.client.features.settings.impl.FloatSetting;
 import hack.skate.client.features.settings.impl.IntSetting;
+import net.minecraft.client.gl.ShaderProgramKeys;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.render.BufferRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -25,7 +26,7 @@ import java.util.List;
 public class JumpCircle extends Feature {
     public FloatSetting maxRadius = new FloatSetting("Max Radius", 1.5f, 0.5f, 4.0f, 0.1f);
     public IntSetting durationMs = new IntSetting("Duration", 800, 200, 3000, " ms");
-    public IntSetting segments = new IntSetting("Segments", 36, 12, 72, 1);
+    public IntSetting segments = new IntSetting("Segments", 36, 12, 72);
 
     private final List<CircleInstance> circles = new ArrayList<>();
     private boolean wasOnGround = true;
@@ -88,7 +89,7 @@ public class JumpCircle extends Feature {
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
         RenderSystem.disableDepthTest();
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
 
         matrices.push();
         matrices.translate(-camPos.x, -camPos.y, -camPos.z);
@@ -116,7 +117,7 @@ public class JumpCircle extends Feature {
             }
         }
 
-        net.minecraft.client.render.BufferRenderer.drawWithGlobalProgram(buffer.end());
+        BufferRenderer.drawWithGlobalProgram(buffer.end());
 
         matrices.pop();
         RenderSystem.enableDepthTest();
