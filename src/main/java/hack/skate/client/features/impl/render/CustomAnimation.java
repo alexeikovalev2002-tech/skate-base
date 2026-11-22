@@ -17,6 +17,8 @@ import net.minecraft.util.math.RotationAxis;
         category = Category.RENDER
 )
 public class CustomAnimation extends Feature {
+    private static CustomAnimation instance;
+
     public ModeSetting animation = new ModeSetting(
             "Animation",
             "Smooth",
@@ -37,8 +39,17 @@ public class CustomAnimation extends Feature {
 
     private float animProgress = 0.0f;
 
+    public CustomAnimation() {
+        instance = this;
+    }
+
+    public static CustomAnimation getInstance() {
+        return instance;
+    }
+
     @Override
     public void onEnable() {
+        instance = this;
         animProgress = 0.0f;
         super.onEnable();
     }
@@ -51,6 +62,7 @@ public class CustomAnimation extends Feature {
 
     @Subscribe
     public void onTick(EventTick event) {
+        instance = this;
         if (!isEnabled() || mc.player == null) {
             animProgress = 0.0f;
             return;
