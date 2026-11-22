@@ -27,7 +27,6 @@ public class CustomAnimation extends Feature {
             "Smooth"
     );
 
-    // Позиция руки и предмета в руке (X и Y — основные, Z и Scale — дополнительные)
     public FloatSetting handX = new FloatSetting("Hand X", 0.0f, -1.5f, 1.5f, 0.05f);
     public FloatSetting handY = new FloatSetting("Hand Y", 0.0f, -1.5f, 1.5f, 0.05f);
     public FloatSetting itemX = new FloatSetting("Item X", 0.0f, -1.5f, 1.5f, 0.05f);
@@ -65,13 +64,6 @@ public class CustomAnimation extends Feature {
         }
     }
 
-    /**
-     * Вызывайте этот метод из вашего хука/ивента рендера руки и предмета от первого лица.
-     *
-     * @param matrices  MatrixStack рендера от первого лица
-     * @param swingProg прогресс взмаха (0.0 .. 1.0), например mc.player.getHandSwingProgress(tickDelta)
-     * @param isOffHand true, если рендерится вторая рука (off-hand)
-     */
     public void applyAnimation(MatrixStack matrices, float swingProg, boolean isOffHand) {
         if (!isEnabled() || matrices == null) return;
 
@@ -81,10 +73,7 @@ public class CustomAnimation extends Feature {
                 ? Math.max(clampedSwing, animProgress)
                 : 1.0f;
 
-        // Смещение самой руки по X и Y
         matrices.translate(handX.getValue() * side, handY.getValue(), 0.0f);
-
-        // Смещение предмета в руке по X, Y и Z
         matrices.translate(itemX.getValue() * side, itemY.getValue(), itemZ.getValue());
 
         String mode = String.valueOf(animation.getValue());
@@ -111,7 +100,6 @@ public class CustomAnimation extends Feature {
                 matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(smooth * 25.0f * side));
             }
             default -> {
-                // "Default" — только пользовательские смещения X / Y / Z
             }
         }
     }
