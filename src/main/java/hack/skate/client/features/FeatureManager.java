@@ -11,6 +11,8 @@ import hack.skate.client.features.impl.movement.Sprint;
 import hack.skate.client.features.impl.render.HUD;
 import hack.skate.client.features.impl.render.Nametags;
 import hack.skate.client.features.impl.render.JumpCircle;
+import hack.skate.client.features.impl.render.CustomAnimation;
+
 
 
 @Getter
@@ -25,6 +27,8 @@ public class FeatureManager {
         features.add(new Teams());
         features.add(new Nametags());
         features.add(new JumpCircle());
+        features.add(new CustomAnimation());
+
 
         features.forEach(Feature::initSettings);
         features.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
