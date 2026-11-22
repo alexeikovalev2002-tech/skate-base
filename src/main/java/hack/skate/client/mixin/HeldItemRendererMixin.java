@@ -1,6 +1,5 @@
 package hack.skate.client.mixin;
 
-import hack.skate.client.features.FeatureManager;
 import hack.skate.client.features.impl.render.CustomAnimation;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -17,9 +16,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
 @Mixin(HeldItemRenderer.class)
 public abstract class HeldItemRendererMixin {
 
@@ -27,13 +23,7 @@ public abstract class HeldItemRendererMixin {
     @Final
     private MinecraftClient client;
 
-    @Inject(
-            method = "renderFirstPersonItem(Lnet/minecraft/client/network/AbstractClientPlayerEntity;FFLnet/minecraft/util/Hand;FLnet/minecraft/item/ItemStack;FLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/client/render/item/HeldItemRenderer;renderItem(Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/item/ItemStack;Lnet/minecraft/item/ItemDisplayContext;ZLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V"
-            )
-    )
+    @Inject(method = "renderFirstPersonItem", at = @At("HEAD"))
     private void skate$customAnimation(
             AbstractClientPlayerEntity player,
             float tickDelta,
@@ -51,12 +41,7 @@ public abstract class HeldItemRendererMixin {
             return;
         }
 
-        FeatureManager featureManager = resolveFeatureManager();
-        if (featureManager == null) {
-            return;
-        }
-
-        CustomAnimation customAnimation = featureManager.getFeatureByClass(CustomAnimation.class);
+        CustomAnimation customAnimation = CustomAnimation.getInstance();
         if (customAnimation != null && customAnimation.isEnabled()) {
             Arm arm = hand == Hand.MAIN_HAND
                     ? player.getMainArm()
@@ -64,61 +49,5 @@ public abstract class HeldItemRendererMixin {
             boolean isLeftHand = arm == Arm.LEFT;
             customAnimation.applyAnimation(matrices, swingProgress, isLeftHand);
         }
-    }
-
-    private FeatureManager resolveFeatureManager() {
-        String[] candidateClassNames = {
-                "hack.skate.client.SkateClient",
-                "hack.skate.client.Skate",
-                "hack.skate.client.Client"
-        };
-
-        for (String className : candidateClassNames) {
-            try {
-                Class<?> clazz = Class.forName(className);
-                Object instance = null;
-
-                for (String methodName : new String[]{"getInstance", "instance"}) {
-                    try {
-                        Method m = clazz.getMethod(methodName);
-                        instance = m.invoke(null);
-                        if (instance != null) break;
-                    } catch (NoSuchMethodException ignored) {
-                    }
-                }
-
-                if (instance == null) {
-                    for (Field f : clazz.getDeclaredFields()) {
-                        f.setAccessible(true);
-                        if (clazz.isAssignableFrom(f.getType())) {
-                            instance = f.get(null);
-                            if (instance != null) break;
-                        }
-                    }
-                }
-
-                if (instance != null) {
-                    for (Method m : instance.getClass().getMethods()) {
-                        if (m.getParameterCount() == 0 && FeatureManager.class.isAssignableFrom(m.getReturnType())) {
-                            Object fm = m.invoke(instance);
-                            if (fm instanceof FeatureManager) {
-                                return (FeatureManager) fm;
-                            }
-                        }
-                    }
-                    for (Field f : instance.getClass().getDeclaredFields()) {
-                        f.setAccessible(true);
-                        if (FeatureManager.class.isAssignableFrom(f.getType())) {
-                            Object fm = f.get(instance);
-                            if (fm instanceof FeatureManager) {
-                                return (FeatureManager) fm;
-                            }
-                        }
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
-        }
-        return null;
     }
 }
