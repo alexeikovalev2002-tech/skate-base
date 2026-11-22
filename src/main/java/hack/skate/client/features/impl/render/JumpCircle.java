@@ -33,10 +33,6 @@ public class JumpCircle extends Feature {
     private boolean wasOnGround = true;
     private double lastY = 0.0;
 
-    public JumpCircle() {
-        addSettings(maxRadius, durationMs, segments);
-    }
-
     @Override
     public void onEnable() {
         circles.clear();
