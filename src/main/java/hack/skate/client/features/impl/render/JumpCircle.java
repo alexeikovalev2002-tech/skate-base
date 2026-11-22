@@ -41,6 +41,10 @@ public class JumpCircle extends Feature {
     private boolean wasOnGround = true;
     private double lastY = 0.0;
 
+    private int cachedSegs = -1;
+    private float[] cosTable = new float[0];
+    private float[] sinTable = new float[0];
+
     @Override
     public void onEnable() {
         circles.clear();
@@ -72,7 +76,9 @@ public class JumpCircle extends Feature {
         if (jumped) {
             Vec3d pos = mc.player.getPos();
             circles.add(new CircleInstance(
-                    new Vec3d(pos.x, pos.y + yOffset.getValue(), pos.z),
+                    pos.x,
+                    pos.y + yOffset.getValue(),
+                    pos.z,
                     System.currentTimeMillis()
             ));
         }
@@ -80,13 +86,27 @@ public class JumpCircle extends Feature {
         wasOnGround = onGround;
         lastY = mc.player.getY();
 
-        long now = System.currentTimeMillis();
-        Iterator<CircleInstance> it = circles.iterator();
-        while (it.hasNext()) {
-            CircleInstance c = it.next();
-            if (now - c.startTime >= durationMs.getValue()) {
-                it.remove();
+        if (!circles.isEmpty()) {
+            long now = System.currentTimeMillis();
+            int maxAge = durationMs.getValue();
+            Iterator<CircleInstance> it = circles.iterator();
+            while (it.hasNext()) {
+                if (now - it.next().startTime >= maxAge) {
+                    it.remove();
+                }
             }
+        }
+    }
+
+    private void ensureTrigTables(int segs) {
+        if (segs == cachedSegs && cosTable.length == segs + 1) return;
+        cachedSegs = segs;
+        cosTable = new float[segs + 1];
+        sinTable = new float[segs + 1];
+        for (int i = 0; i <= segs; i++) {
+            double angle = (2.0 * Math.PI * i) / segs;
+            cosTable[i] = (float) Math.cos(angle);
+            sinTable[i] = (float) Math.sin(angle);
         }
     }
 
@@ -104,7 +124,13 @@ public class JumpCircle extends Feature {
         long now = System.currentTimeMillis();
         int lifeTime = Math.max(1, durationMs.getValue());
         int segs = Math.max(16, segments.getValue());
+        ensureTrigTables(segs);
+
         String currentMode = String.valueOf(mode.getValue());
+        String theme = String.valueOf(colorMode.getValue());
+        boolean drawFill = fill.getValue() || "Disc".equals(currentMode);
+        boolean isDoubleRing = "Double Ring".equals(currentMode);
+        boolean isSegmented = "Segmented".equals(currentMode);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -113,117 +139,127 @@ public class JumpCircle extends Feature {
         RenderSystem.setShader(ShaderProgramKeys.POSITION_COLOR);
 
         matrices.push();
-        matrices.translate(-camPos.x, -camPos.y, -camPos.z);
-        Matrix4f matrix = matrices.peek().getPositionMatrix();
+        try {
+            matrices.translate(-camPos.x, -camPos.y, -camPos.z);
+            Matrix4f matrix = matrices.peek().getPositionMatrix();
+            Tessellator tessellator = Tessellator.getInstance();
 
-        Tessellator tessellator = Tessellator.getInstance();
+            for (int cIdx = 0; cIdx < circles.size(); cIdx++) {
+                CircleInstance circle = circles.get(cIdx);
+                float rawProgress = Math.min(1.0f, Math.max(0.0f, (now - circle.startTime) / (float) lifeTime));
+                float inv = 1.0f - rawProgress;
+                float eased = 1.0f - inv * inv * inv;
+                float outerRadius = maxRadius.getValue() * (0.2f + 0.8f * eased);
+                float alphaFactor = 1.0f - (float) Math.pow(rawProgress, 1.6);
 
-        for (CircleInstance circle : circles) {
-            float rawProgress = Math.min(1.0f, Math.max(0.0f, (now - circle.startTime) / (float) lifeTime));
-            // Плавное замедление расширения (ease-out cubic)
-            float eased = 1.0f - (float) Math.pow(1.0f - rawProgress, 3.0);
-            float outerRadius = maxRadius.getValue() * (0.2f + 0.8f * eased);
-            float alphaFactor = 1.0f - (float) Math.pow(rawProgress, 1.6);
+                float cx = (float) circle.x;
+                float cy = (float) circle.y;
+                float cz = (float) circle.z;
 
-            if (fill.getValue() || "Disc".equals(currentMode)) {
-                float bandWidth = Math.min(outerRadius * 0.85f, thickness.getValue() * (0.5f + 0.5f * eased));
-                float innerRadius = Math.max(0.0f, outerRadius - bandWidth);
+                if (drawFill) {
+                    float bandWidth = Math.min(outerRadius * 0.85f, thickness.getValue() * (0.5f + 0.5f * eased));
+                    float innerRadius = Math.max(0.0f, outerRadius - bandWidth);
 
-                BufferBuilder fanBuffer = tessellator.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
-                for (int i = 0; i <= segs; i++) {
-                    double angle = (2.0 * Math.PI * i) / segs;
-                    float cos = (float) Math.cos(angle);
-                    float sin = (float) Math.sin(angle);
+                    BufferBuilder fanBuffer = tessellator.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+                    for (int i = 0; i <= segs; i++) {
+                        float cos = cosTable[i];
+                        float sin = sinTable[i];
+                        double angle = (2.0 * Math.PI * i) / segs;
 
-                    Color edgeColor = getThemeColor(rawProgress, angle, alphaFactor, 165);
-                    Color innerColor = getThemeColor(rawProgress, angle, alphaFactor, 15);
+                        int edgeRgba = computeRgba(theme, rawProgress, angle, alphaFactor, 165);
+                        int innerRgba = computeRgba(theme, rawProgress, angle, alphaFactor, 15);
 
-                    float ox = (float) circle.pos.x + cos * outerRadius;
-                    float oz = (float) circle.pos.z + sin * outerRadius;
-                    float ix = (float) circle.pos.x + cos * innerRadius;
-                    float iz = (float) circle.pos.z + sin * innerRadius;
-                    float y = (float) circle.pos.y;
-
-                    fanBuffer.vertex(matrix, ox, y, oz).color(edgeColor.getRed(), edgeColor.getGreen(), edgeColor.getBlue(), edgeColor.getAlpha());
-                    fanBuffer.vertex(matrix, ix, y, iz).color(innerColor.getRed(), innerColor.getGreen(), innerColor.getBlue(), innerColor.getAlpha());
+                        fanBuffer.vertex(matrix, cx + cos * outerRadius, cy, cz + sin * outerRadius)
+                                .color(edgeRgba);
+                        fanBuffer.vertex(matrix, cx + cos * innerRadius, cy, cz + sin * innerRadius)
+                                .color(innerRgba);
+                    }
+                    BufferRenderer.drawWithGlobalProgram(fanBuffer.end());
                 }
-                BufferRenderer.drawWithGlobalProgram(fanBuffer.end());
-            }
 
-            if ("Double Ring".equals(currentMode)) {
-                drawRing(tessellator, matrix, circle.pos, outerRadius, rawProgress, alphaFactor, segs, 235, 0.0);
-                float secondRadius = outerRadius * 0.65f;
-                drawRing(tessellator, matrix, circle.pos, secondRadius, rawProgress, alphaFactor * 0.75f, segs, 190, 0.0);
-            } else if ("Segmented".equals(currentMode)) {
-                drawSegmentedRing(tessellator, matrix, circle.pos, outerRadius, rawProgress, alphaFactor, segs, 235);
-            } else {
-                drawRing(tessellator, matrix, circle.pos, outerRadius, rawProgress, alphaFactor, segs, 240, 0.0);
+                if (isDoubleRing) {
+                    drawRing(tessellator, matrix, cx, cy, cz, outerRadius, rawProgress, alphaFactor, segs, theme, 235);
+                    drawRing(tessellator, matrix, cx, cy, cz, outerRadius * 0.65f, rawProgress, alphaFactor * 0.75f, segs, theme, 190);
+                } else if (isSegmented) {
+                    drawSegmentedRing(tessellator, matrix, cx, cy, cz, outerRadius, rawProgress, alphaFactor, segs, theme, 235);
+                } else {
+                    drawRing(tessellator, matrix, cx, cy, cz, outerRadius, rawProgress, alphaFactor, segs, theme, 240);
+                }
             }
+        } finally {
+            matrices.pop();
+            RenderSystem.enableDepthTest();
+            RenderSystem.enableCull();
+            RenderSystem.disableBlend();
         }
-
-        matrices.pop();
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableCull();
-        RenderSystem.disableBlend();
     }
 
-    private void drawRing(Tessellator tessellator, Matrix4f matrix, Vec3d center, float radius,
-                          float progress, float alphaFactor, int segs, int baseAlpha, double rotationOffset) {
+    private void drawRing(Tessellator tessellator, Matrix4f matrix, float cx, float cy, float cz,
+                          float radius, float progress, float alphaFactor, int segs, String theme, int baseAlpha) {
         BufferBuilder lineBuffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINE_STRIP, VertexFormats.POSITION_COLOR);
         for (int i = 0; i <= segs; i++) {
-            double angle = (2.0 * Math.PI * i) / segs + rotationOffset;
-            float x = (float) (center.x + Math.cos(angle) * radius);
-            float y = (float) center.y;
-            float z = (float) (center.z + Math.sin(angle) * radius);
-
-            Color c = getThemeColor(progress, angle, alphaFactor, baseAlpha);
-            lineBuffer.vertex(matrix, x, y, z).color(c.getRed(), c.getGreen(), c.getBlue(), c.getAlpha());
+            double angle = (2.0 * Math.PI * i) / segs;
+            int rgba = computeRgba(theme, progress, angle, alphaFactor, baseAlpha);
+            lineBuffer.vertex(matrix, cx + cosTable[i] * radius, cy, cz + sinTable[i] * radius)
+                    .color(rgba);
         }
         BufferRenderer.drawWithGlobalProgram(lineBuffer.end());
     }
 
-    private void drawSegmentedRing(Tessellator tessellator, Matrix4f matrix, Vec3d center, float radius,
-                                   float progress, float alphaFactor, int segs, int baseAlpha) {
+    private void drawSegmentedRing(Tessellator tessellator, Matrix4f matrix, float cx, float cy, float cz,
+                                   float radius, float progress, float alphaFactor, int segs, String theme, int baseAlpha) {
         int dashCount = 6;
         float spin = progress * (float) (Math.PI * 1.5);
         BufferBuilder lineBuffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINES, VertexFormats.POSITION_COLOR);
 
         for (int i = 0; i < segs; i++) {
-            double a1 = (2.0 * Math.PI * i) / segs + spin;
-            double a2 = (2.0 * Math.PI * (i + 1)) / segs + spin;
-
             int sector = (int) (((double) i / segs) * dashCount * 2);
             if (sector % 2 == 0) {
-                Color c = getThemeColor(progress, a1, alphaFactor, baseAlpha);
-                float x1 = (float) (center.x + Math.cos(a1) * radius);
-                float z1 = (float) (center.z + Math.sin(a1) * radius);
-                float x2 = (float) (center.x + Math.cos(a2) * radius);
-                float z2 = (float) (center.z + Math.sin(a2) * radius);
-                float y = (float) center.y;
+                double a1 = (2.0 * Math.PI * i) / segs + spin;
+                double a2 = (2.0 * Math.PI * (i + 1)) / segs + spin;
+                int rgba = computeRgba(theme, progress, a1, alphaFactor, baseAlpha);
 
-                lineBuffer.vertex(matrix, x1, y, z1).color(c.getRed(), c.getGreen(), c.getBlue(), c.getAlpha());
-                lineBuffer.vertex(matrix, x2, y, z2).color(c.getRed(), c.getGreen(), c.getBlue(), c.getAlpha());
+                lineBuffer.vertex(matrix, cx + (float) Math.cos(a1) * radius, cy, cz + (float) Math.sin(a1) * radius)
+                        .color(rgba);
+                lineBuffer.vertex(matrix, cx + (float) Math.cos(a2) * radius, cy, cz + (float) Math.sin(a2) * radius)
+                        .color(rgba);
             }
         }
         BufferRenderer.drawWithGlobalProgram(lineBuffer.end());
     }
 
-    private Color getThemeColor(float progress, double angle, float alphaFactor, int baseAlpha) {
-        String theme = String.valueOf(colorMode.getValue());
-        int alpha = Math.max(0, Math.min(255, (int) (baseAlpha * alphaFactor)));
+    private int computeRgba(String theme, float progress, double angle, float alphaFactor, int baseAlpha) {
+        int r;
+        int g;
+        int b;
 
-        Color base;
         switch (theme) {
-            case "Sakura" -> base = new Color(255, 155, 195);
-            case "Ocean" -> base = new Color(60, 145, 255);
+            case "Sakura" -> {
+                r = 255;
+                g = 155;
+                b = 195;
+            }
+            case "Ocean" -> {
+                r = 60;
+                g = 145;
+                b = 255;
+            }
             case "Rainbow" -> {
                 float hue = (float) ((angle / (2.0 * Math.PI)) + progress * 0.5f) % 1.0f;
-                base = Color.getHSBColor(hue, 0.75f, 1.0f);
+                int rgb = Color.HSBtoRGB(hue, 0.75f, 1.0f);
+                r = (rgb >> 16) & 0xFF;
+                g = (rgb >> 8) & 0xFF;
+                b = rgb & 0xFF;
             }
-            default -> base = new Color(85, 225, 255);
+            default -> {
+                r = 85;
+                g = 225;
+                b = 255;
+            }
         }
 
-        return new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
+        int a = Math.max(0, Math.min(255, (int) (baseAlpha * alphaFactor)));
+        return ((r & 0xFF) << 24) | ((g & 0xFF) << 16) | ((b & 0xFF) << 8) | (a & 0xFF);
     }
 
     @Override
@@ -231,12 +267,16 @@ public class JumpCircle extends Feature {
         return String.valueOf(mode.getValue());
     }
 
-    private static class CircleInstance {
-        private final Vec3d pos;
+    private static final class CircleInstance {
+        private final double x;
+        private final double y;
+        private final double z;
         private final long startTime;
 
-        private CircleInstance(Vec3d pos, long startTime) {
-            this.pos = pos;
+        private CircleInstance(double x, double y, double z, long startTime) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
             this.startTime = startTime;
         }
     }
