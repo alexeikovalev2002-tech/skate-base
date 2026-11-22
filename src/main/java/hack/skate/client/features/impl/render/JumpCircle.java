@@ -33,6 +33,10 @@ public class JumpCircle extends Feature {
     private boolean wasOnGround = true;
     private double lastY = 0.0;
 
+    public JumpCircle() {
+        addSettings(maxRadius, durationMs, segments);
+    }
+
     @Override
     public void onEnable() {
         circles.clear();
@@ -81,12 +85,15 @@ public class JumpCircle extends Feature {
 
     @Subscribe
     public void onRender3D(EventRender3D event) {
-        if (circles.isEmpty() || mc.player == null || mc.gameRenderer == null) return;
+        if (circles.isEmpty() || mc.player == null) return;
 
-        MatrixStack matrices = event.getMatrixStack();
+        MatrixStack matrices = event.getMatrices();
         if (matrices == null) return;
 
-        Vec3d camPos = mc.gameRenderer.getCamera().getPos();
+        Vec3d camPos = event.getCamera() != null
+                ? event.getCamera().getPos()
+                : (mc.gameRenderer != null ? mc.gameRenderer.getCamera().getPos() : Vec3d.ZERO);
+
         long now = System.currentTimeMillis();
         int lifeTime = Math.max(1, durationMs.getValue());
         int segs = Math.max(12, segments.getValue());
